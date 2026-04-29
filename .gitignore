@@ -3,4 +3,5 @@ credential/*
 
 **/__pycache__/
 
-.venv/*
+.venv/
+output.html

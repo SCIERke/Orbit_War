@@ -1,1 +1,6 @@
 credential/*
+.env
+
+**/__pycache__/
+
+.venv/*

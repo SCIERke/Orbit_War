@@ -1,6 +1,11 @@
 # required
 kaggle_environments
 kaggle
-dotenv
+python-dotenv
 
-# 
+# Reinforcement Learning
+gymnasium
+stable-baselines3
+
+# logger
+wandb

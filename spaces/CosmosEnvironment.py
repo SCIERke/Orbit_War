@@ -194,10 +194,14 @@ class CosmosEnvironment(gym.Env):
         player = obs["player"]
 
         def score(o: Dict[str, Any]) -> float:
-            planet_ships = sum(p["ships"] for p in o["planets"] if p["owner"] == player)
-            fleet_ships  = sum(f["ships"] for f in o["fleets"]  if f["owner"] == player)
-            n_planets    = sum(1          for p in o["planets"] if p["owner"] == player)
-            return float(planet_ships + fleet_ships + n_planets * 10)
+            my_ships = (
+                sum(p["ships"] for p in o["planets"] if p["owner"] == player) +
+                sum(f["ships"] for f in o["fleets"]  if f["owner"] == player)
+            )
+            my_prod    = sum(p["production"] for p in o["planets"] if p["owner"] == player)
+            enemy_prod = sum(p["production"] for p in o["planets"]
+                             if p["owner"] not in (player, -1))
+            return float(my_ships * 0.5 + my_prod * 30.0 + (my_prod - enemy_prod) * 15.0)
 
         return (score(obs) - score(prev_obs)) / 1000.0
 

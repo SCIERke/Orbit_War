@@ -353,6 +353,9 @@ class CosmosEnvironment(gym.Env):
             return None
         return self._kaggle.render(mode=self.render_mode)
 
+    def set_opponent_agent(self, agent) -> None:
+        self._opponent_agent = agent
+
     def _count_ships(self, player_id: int, obs: Dict[str, Any]) -> int:
         total = sum(p["ships"] for p in obs["planets"] if p["owner"] == player_id)
         total += sum(f["ships"] for f in obs["fleets"]  if f["owner"] == player_id)

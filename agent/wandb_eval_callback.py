@@ -12,6 +12,8 @@ class WandbEvalCallback(BaseCallback):
         n_eval_episodes: int = 10,
         project: str = "orbit-war",
         run_config: Optional[Dict[str, Any]] = None,
+        curriculum_opponent: Optional[Any] = None,
+        curriculum_threshold: float = 0.6,
     ):
         super().__init__()
         self._eval_env = eval_env
@@ -22,6 +24,9 @@ class WandbEvalCallback(BaseCallback):
         self._terminal_rewards: List[float] = []
         self._shaped_rewards: List[float] = []
         self._last_eval_step = 0
+        self._curriculum_opponent = curriculum_opponent
+        self._curriculum_threshold = curriculum_threshold
+        self._curriculum_phase = 0  # 0=passive, 1=n_nearest_planet
 
     def _on_training_start(self) -> None:
         wandb.init(project=self._project, config=self._run_config, reinit=True)
@@ -47,6 +52,8 @@ class WandbEvalCallback(BaseCallback):
             self._terminal_rewards.clear()
             self._shaped_rewards.clear()
 
+        metrics["curriculum/phase"] = float(self._curriculum_phase)
+
         if metrics:
             wandb.log(metrics, step=self.num_timesteps)
 
@@ -58,10 +65,24 @@ class WandbEvalCallback(BaseCallback):
 
         if self.num_timesteps - self._last_eval_step >= self._eval_freq:
             self._last_eval_step = self.num_timesteps
-            self._run_eval()
+            win_rate = self._run_eval()
+            self._maybe_advance_curriculum(win_rate)
         return True
 
-    def _run_eval(self) -> None:
+    def _maybe_advance_curriculum(self, win_rate: float) -> None:
+        if self._curriculum_phase == 0 and self._curriculum_opponent is not None:
+            if win_rate >= self._curriculum_threshold:
+                self._curriculum_phase = 1
+                self.training_env.env_method("set_opponent_agent", [self._curriculum_opponent])
+                self._eval_env.env_method("set_opponent_agent", [self._curriculum_opponent])
+                wandb.log({
+                    "curriculum/phase": 1.0,
+                    "curriculum/switched_at_timestep": float(self.num_timesteps),
+                }, step=self.num_timesteps)
+                print(f"\n[Curriculum] Phase 1: switched to hard opponent at {self.num_timesteps} steps "
+                      f"(win_rate={win_rate:.2f} >= {self._curriculum_threshold})\n")
+
+    def _run_eval(self) -> float:
         wins = draws = losses = 0
         ep_lengths: List[int] = []
         my_ships_list: List[float] = []
@@ -99,8 +120,9 @@ class WandbEvalCallback(BaseCallback):
             enemy_planets_list.append(float(last_info.get("enemy_planets", 0)))
 
         n = self._n_eval_episodes
+        win_rate = wins / n
         wandb.log({
-            "eval/win_rate":               wins / n,
+            "eval/win_rate":               win_rate,
             "eval/draw_rate":              draws / n,
             "eval/loss_rate":              losses / n,
             "eval/mean_episode_length":    float(np.mean(ep_lengths)),
@@ -109,6 +131,7 @@ class WandbEvalCallback(BaseCallback):
             "eval/mean_my_planets_end":    float(np.mean(my_planets_list)),
             "eval/mean_enemy_planets_end": float(np.mean(enemy_planets_list)),
         }, step=self.num_timesteps)
+        return win_rate
 
     def _on_training_end(self) -> None:
         wandb.finish()

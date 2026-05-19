@@ -25,10 +25,10 @@ class PPOAgent:
         from dotenv import load_dotenv
         load_dotenv()
         from spaces.CosmosEnvironment import CosmosEnvironment
-        from agent.n_nearest_planet import agent as nearest_planet_agent
         self._seed = seed
+        # Start with passive opponent (None); curriculum callback upgrades to n_nearest
         env = DummyVecEnv([lambda: ActionMasker(
-            CosmosEnvironment.from_orbit_wars(opponent_agent=nearest_planet_agent), _mask_fn
+            CosmosEnvironment.from_orbit_wars(opponent_agent=None), _mask_fn
         )])
         self.model = MaskablePPO(
             "MlpPolicy", env, verbose=1,
@@ -36,13 +36,14 @@ class PPOAgent:
             **self.HYPERPARAMS,
         )
         self._eval_env = DummyVecEnv([lambda: ActionMasker(
-            CosmosEnvironment.from_orbit_wars(opponent_agent=nearest_planet_agent), _mask_fn
+            CosmosEnvironment.from_orbit_wars(opponent_agent=None), _mask_fn
         )])
         self._permanent_planet_ids: set = set()
         self._comet_ids: set = set()
 
     def learn(self, total_timesteps: int = 10_000, run_dir: str = "runs") -> str:
         from agent.wandb_eval_callback import WandbEvalCallback
+        from agent.n_nearest_planet import agent as nearest_planet_agent
         tag = time.strftime("%Y%m%d_%H%M%S")
         out = os.path.join(run_dir, tag)
         os.makedirs(out, exist_ok=True)
@@ -57,6 +58,8 @@ class PPOAgent:
             n_eval_episodes=10,
             project="orbit-war",
             run_config=run_config,
+            curriculum_opponent=nearest_planet_agent,
+            curriculum_threshold=0.6,
         )
         self.model.learn(total_timesteps=total_timesteps, progress_bar=True, callback=cb)
 

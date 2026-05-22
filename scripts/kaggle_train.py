@@ -56,6 +56,10 @@ print("CUDA available:", torch.cuda.is_available())
 print("Device:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
 
 # ── Cell 5: Train ─────────────────────────────────────────────────────────────
+# Force CPU — Kaggle's system torch CUDA kernels are incompatible with this GPU.
+# RL env step is the bottleneck (Python game sim), not matrix ops, so CPU is fine.
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 import sys
 sys.path.insert(0, os.getcwd())
 

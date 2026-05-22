@@ -31,7 +31,14 @@ print("Working dir:", os.getcwd())
 subprocess.run([
     "pip", "install", "-q",
     "kaggle-environments==1.29.1",
-    "sb3-contrib", "wandb", "python-dotenv", "gymnasium",
+    "wandb", "python-dotenv", "gymnasium",
+], check=True)
+
+# Install SB3 packages with --no-deps to avoid overwriting Kaggle's GPU torch.
+# torch, numpy, gym are already present in the Kaggle runtime.
+subprocess.run([
+    "pip", "install", "-q", "--no-deps",
+    "stable-baselines3", "sb3-contrib",
 ], check=True)
 
 # ── Cell 3: Secrets → env vars ────────────────────────────────────────────────

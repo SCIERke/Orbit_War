@@ -27,8 +27,10 @@ os.chdir(REPO_DIR)
 print("Working dir:", os.getcwd())
 
 # ── Cell 2: Install dependencies ──────────────────────────────────────────────
+# kaggle-environments>=1.29.1 required — orbit_wars env bundled from that version
 subprocess.run([
     "pip", "install", "-q",
+    "kaggle-environments==1.29.1",
     "sb3-contrib", "wandb", "python-dotenv", "gymnasium",
 ], check=True)
 

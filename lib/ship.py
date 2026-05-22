@@ -1,5 +1,4 @@
 import math
-from config.const import MAX_SHIP_SPEED
 from dataclasses import dataclass, field
 from lib.celestialBody import MyCelestialBody
 from typing import List
@@ -39,19 +38,21 @@ class MyFleet(MyCelestialBody):
         )
 
     @classmethod
-    def calculate_speed(cls, n_ship: int) -> float:
-        return 1.0 + (MAX_SHIP_SPEED - 1.0) * (math.log(n_ship) / math.log(1000)) ** 1.5
+    def calculate_speed(cls, n_ship: int, max_ship_speed: float = 6.0) -> float:
+        return 1.0 + (max_ship_speed - 1.0) * (math.log(n_ship) / math.log(1000)) ** 1.5
 
-    def _shoot_at_planet(self, planet: MyPlanet, current_turn: int) -> float:
+    def _shoot_at_planet(self, planet: MyPlanet, current_turn: int, max_ship_speed: float = 6.0) -> float:
         """
         Returns:
             float: angle to shoot at
         """
-        if planet.planet_type == PlanetType.STATIC:
+        # ORBITAL (outer, far from sun) = truly static in engine → aim directly
+        # STATIC  (inner, near sun)    = rotates in engine    → predict intercept
+        if planet.planet_type == PlanetType.ORBITAL:
             return self._calculate_angle(planet)
 
         distance = self._calculate_distance(planet)
-        speed = self.calculate_speed(self.ships)
+        speed = self.calculate_speed(self.ships, max_ship_speed=max_ship_speed)
         travel_turns = int(distance / speed)
-        pred_x, pred_y = planet._calculate_position_from_turn(current_turn + travel_turns)
+        pred_x, pred_y = planet._calculate_position_from_turn(travel_turns)
         return math.atan2(pred_y - self.y, pred_x - self.x)

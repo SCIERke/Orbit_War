@@ -1,15 +1,7 @@
-from kaggle_environments import make
-from agent.n_nearest_planet import agent
+from typing import Any, Dict, List, Tuple
+from agent.n_nearest_planet import agent as nearest_planet_agent
+from spaces.CosmosEnvironment import CosmosEnvironment
 
-def main():
-    env = make("orbit_wars", debug=True)
-    env.run([agent, "random"])
-    
-    html_output = env.render(mode="html")
-    
-    with open("output.html", "w") as f:
-        f.write(html_output)
-    
-    
-if __name__ == "__main__":
-    main()
+
+# def agent(obs: Dict, config: Any = None) -> List[Tuple[int, float, int]]:
+    # return nearest_planet_agent(obs, config)

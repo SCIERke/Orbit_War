@@ -31,7 +31,8 @@ class MyPlanet(MyCelestialBody):
             if self.init_orbital_radius + self.radius < 50
             else PlanetType.ORBITAL
         )
-
+    
+    
     @classmethod
     def from_obs(cls, raw_data: List, angular_velocity: float = 0.0) -> "MyPlanet":
         if len(raw_data) != 7:
@@ -60,10 +61,10 @@ class MyPlanet(MyCelestialBody):
         )
 
     def _calculate_position_from_turn(self, turn: int) -> Tuple[float, float]:
-        if self.planet_type == PlanetType.STATIC:
+        if self.planet_type == PlanetType.ORBITAL:
             return (self.init_x, self.init_y)
 
-        if self.planet_type == PlanetType.ORBITAL:
+        if self.planet_type == PlanetType.STATIC:
             angle = self.init_angle + self.angular_velocity * turn
             return self._angle_to_position(angle)
 

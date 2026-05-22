@@ -5,3 +5,7 @@ credential/*
 
 .venv/
 output.html
+runs/
+wandb/
+*.DS_Store
+.vscode/

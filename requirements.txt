@@ -6,6 +6,7 @@ python-dotenv
 # Reinforcement Learning
 gymnasium
 stable-baselines3
+sb3-contrib
 
 # logger
 wandb

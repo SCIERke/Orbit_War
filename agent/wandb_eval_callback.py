@@ -11,25 +11,31 @@ class WandbEvalCallback(BaseCallback):
         eval_freq: int = 50_000,
         n_eval_episodes: int = 10,
         project: str = "orbit-war",
+        run_name: Optional[str] = None,
         run_config: Optional[Dict[str, Any]] = None,
         curriculum_opponent: Optional[Any] = None,
+        curriculum_container: Optional[Any] = None,
         curriculum_threshold: float = 0.6,
+        curriculum_min_phase0_steps: int = 750_000,
     ):
         super().__init__()
         self._eval_env = eval_env
         self._eval_freq = eval_freq
         self._n_eval_episodes = n_eval_episodes
         self._project = project
+        self._run_name = run_name
         self._run_config = run_config or {}
         self._terminal_rewards: List[float] = []
         self._shaped_rewards: List[float] = []
         self._last_eval_step = 0
         self._curriculum_opponent = curriculum_opponent
+        self._curriculum_container = curriculum_container
         self._curriculum_threshold = curriculum_threshold
+        self._curriculum_min_phase0_steps = curriculum_min_phase0_steps
         self._curriculum_phase = 0  # 0=passive, 1=n_nearest_planet
 
     def _on_training_start(self) -> None:
-        wandb.init(project=self._project, config=self._run_config, reinit=True)
+        wandb.init(project=self._project, name=self._run_name, config=self._run_config, reinit=True)
 
     def _on_rollout_end(self) -> None:
         log = self.logger.name_to_value
@@ -71,10 +77,10 @@ class WandbEvalCallback(BaseCallback):
 
     def _maybe_advance_curriculum(self, win_rate: float) -> None:
         if self._curriculum_phase == 0 and self._curriculum_opponent is not None:
-            if win_rate >= self._curriculum_threshold:
+            if win_rate >= self._curriculum_threshold and self.num_timesteps >= self._curriculum_min_phase0_steps:
                 self._curriculum_phase = 1
-                self.training_env.env_method("set_opponent_agent", [self._curriculum_opponent])
-                self._eval_env.env_method("set_opponent_agent", [self._curriculum_opponent])
+                if self._curriculum_container is not None:
+                    self._curriculum_container.set(self._curriculum_opponent)
                 wandb.log({
                     "curriculum/phase": 1.0,
                     "curriculum/switched_at_timestep": float(self.num_timesteps),

@@ -12,13 +12,31 @@ def _mask_fn(env) -> np.ndarray:
     return env.action_masks()
 
 
+class _OpponentRef:
+    """Shared mutable opponent handle.
+
+    Both train env and eval env hold the same instance, so calling .set()
+    switches both simultaneously without env_method forwarding through wrappers.
+    """
+    def __init__(self):
+        self.inner = None
+
+    def set(self, agent) -> None:
+        self.inner = agent
+
+    def __call__(self, obs, config=None):
+        if self.inner is None:
+            return []
+        return self.inner(obs, config)
+
+
 class PPOAgent:
     HYPERPARAMS = {
-        "learning_rate": 1e-4,
+        "learning_rate": 3e-4,
         "clip_range": 0.2,
-        "n_steps": 2048,
-        "batch_size": 64,
-        "ent_coef": 0.01,
+        "n_steps": 4096,
+        "batch_size": 256,
+        "ent_coef": 0.05,
     }
 
     def __init__(self, seed: int = 42):
@@ -26,17 +44,18 @@ class PPOAgent:
         load_dotenv()
         from spaces.CosmosEnvironment import CosmosEnvironment
         self._seed = seed
-        # Start with passive opponent (None); curriculum callback upgrades to n_nearest
+        self._opponent_ref = _OpponentRef()
         env = DummyVecEnv([lambda: ActionMasker(
-            CosmosEnvironment.from_orbit_wars(opponent_agent=None), _mask_fn
+            CosmosEnvironment.from_orbit_wars(opponent_agent=self._opponent_ref), _mask_fn
         )])
         self.model = MaskablePPO(
             "MlpPolicy", env, verbose=1,
             seed=seed,
+            policy_kwargs={"net_arch": [256, 256]},
             **self.HYPERPARAMS,
         )
         self._eval_env = DummyVecEnv([lambda: ActionMasker(
-            CosmosEnvironment.from_orbit_wars(opponent_agent=None), _mask_fn
+            CosmosEnvironment.from_orbit_wars(opponent_agent=self._opponent_ref), _mask_fn
         )])
         self._permanent_planet_ids: set = set()
         self._comet_ids: set = set()
@@ -48,18 +67,27 @@ class PPOAgent:
         out = os.path.join(run_dir, tag)
         os.makedirs(out, exist_ok=True)
 
-        run_config = {"total_timesteps": total_timesteps, "seed": self._seed, **self.HYPERPARAMS}
+        run_config = {
+            "total_timesteps": total_timesteps,
+            "seed": self._seed,
+            "net_arch": [256, 256],
+            "curriculum_min_phase0_steps": 750_000,
+            **self.HYPERPARAMS,
+        }
         with open(os.path.join(out, "config.json"), "w") as f:
             json.dump(run_config, f, indent=2)
 
         cb = WandbEvalCallback(
             eval_env=self._eval_env,
-            eval_freq=50_000,
+            eval_freq=250_000,
             n_eval_episodes=10,
             project="orbit-war",
+            run_name=tag,
             run_config=run_config,
             curriculum_opponent=nearest_planet_agent,
-            curriculum_threshold=0.6,
+            curriculum_container=self._opponent_ref,
+            curriculum_threshold=0.9,
+            curriculum_min_phase0_steps=750_000,
         )
         self.model.learn(total_timesteps=total_timesteps, progress_bar=True, callback=cb)
 

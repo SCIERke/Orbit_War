@@ -284,9 +284,9 @@ class CosmosEnvironment(gym.Env):
         self._comet_ids = set()
 
         if self._kaggle is not None:
-            if seed is not None:
-                self._kaggle.info.pop("seed", None)
-                self._kaggle.configuration.seed = int(seed)
+            actual_seed = seed if seed is not None else int(np.random.randint(0, 2**31))
+            self._kaggle.info.pop("seed", None)
+            self._kaggle.configuration.seed = actual_seed
             self._kaggle.reset(num_agents=self._num_agents)
             raw_obs = self._kaggle.state[self._agent_index].observation
             self._last_obs = self._kaggle_observation_as_dict(raw_obs)
